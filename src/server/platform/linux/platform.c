@@ -17,6 +17,7 @@
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+#include <unistd.h>
 #include <signal.h>
 
 /* SIGINT handler: set gQuitFlag to 1 for graceful termination */
