@@ -150,7 +150,7 @@ int loop()
 {
     while (!gQuitFlag)
     {
-        OIC_LOG_V(INFO, TAG, "iterate: %d",Light.state);
+        printf("iterate: %d\n",Light.state);
         if (OCProcess() != OC_STACK_OK)
         {
             OIC_LOG(ERROR, TAG, "OCStack process error");
