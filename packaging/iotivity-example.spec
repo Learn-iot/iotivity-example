@@ -13,6 +13,7 @@ BuildRequires:  make
 BuildRequires:  fdupes
 BuildRequires:  iotivity-devel
 BuildRequires:  boost-devel
+BuildRequires:  pkgconfig(dlog)
 
 
 %description

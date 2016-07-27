@@ -32,28 +32,20 @@ local_bindir?=opt
 
 IOTIVITY_DIR?=$(PKG_CONFIG_SYSROOT_DIR)/usr/include/iotivity
 
-CPPFLAGS=$(shell pkg-config iotivity --cflags)
-CPPFLAGS+=-DLOGGING=1
-
-CPPFLAGS+=\
- -I$(IOTIVITY_DIR) \
- -I$(IOTIVITY_DIR)/resource/c_common/ \
- -I$(IOTIVITY_DIR)/resource/csdk/ \
- -I$(IOTIVITY_DIR)/resource/logger \
- -I$(IOTIVITY_DIR)/resource/stack/ \
- -I. \
- #eol
-
-LIBS+= -loc -loc_logger -loctbstack
+CPPFLAGS+=$(shell pkg-config iotivity --cflags)
+CPPFLAGS+=$(shell pkg-config dlog --cflags)
+CPPFLAGS+=-D__TIZEN__=1 -DLOG_=daemon_log
+LIBS+=$(shell pkg-config iotivity --libs)
+LIBS+= -loc -loc_logger -loctbstack -ldlog
 
 client?=${local_bindir}/client
 server_objs?=
 server?=${local_bindir}/server
 client_objs?=
 
-all?=${client} ${observer}
-
 all+=${server}
+all+=${client}
+all+=${observer}
 
 ${local_bindir}/server: src/server.o ${server_objs} ${objs}
 	@-mkdir -p ${@D}

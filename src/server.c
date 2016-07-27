@@ -68,13 +68,13 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
     OCRepPayload *payload = (OCRepPayload *) OCRepPayloadCreate();
     if (!payload)
     {
-        OIC_LOG(ERROR, TAG, ("Failed to allocate Payload"));
+        OIC_LOG(ERROR, TAG, "Failed to allocate Payload");
         return OC_EH_ERROR;
     }
 
     if (entityHandlerRequest && (flag & OC_REQUEST_FLAG))
     {
-        OIC_LOG (INFO, TAG, ("Flag includes OC_REQUEST_FLAG"));
+        OIC_LOG(INFO, TAG, "Flag includes OC_REQUEST_FLAG");
 
         if (OC_REST_GET == entityHandlerRequest->method)
         {
@@ -118,11 +118,11 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
     {
         if (OC_OBSERVE_REGISTER == entityHandlerRequest->obsInfo.action)
         {
-            OIC_LOG (INFO, TAG, ("Received OC_OBSERVE_REGISTER from client"));
+            OIC_LOG(INFO, TAG, "Received OC_OBSERVE_REGISTER from client");
         }
         else if (OC_OBSERVE_DEREGISTER == entityHandlerRequest->obsInfo.action)
         {
-            OIC_LOG (INFO, TAG, ("Received OC_OBSERVE_DEREGISTER from client"));
+            OIC_LOG(INFO, TAG, "Received OC_OBSERVE_DEREGISTER from client");
         }
     }
     OCRepPayloadDestroy(payload);

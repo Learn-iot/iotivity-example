@@ -61,7 +61,7 @@ OCStackApplicationResult postReqCB(void *ctx,
 
     if (clientResponse)
     {
-        OIC_LOG(INFO, TAG, ("=============> Post Response"));
+        OIC_LOG(INFO, TAG, "=============> Post Response");
     }
     else
     {
@@ -116,7 +116,7 @@ OCStackApplicationResult handleDiscovery(void* ctx,
               clientResponse->devAddr.port);
 
 	OIC_LOG_V(INFO, TAG, "SEQUENCE NUMBER: %d", clientResponse->sequenceNumber);
-	OIC_LOG(INFO, TAG, ("=============> Get Response"));
+	OIC_LOG(INFO, TAG, "=============> Get Response");
 
     gDestination = clientResponse->devAddr;
     gConnectivityType = clientResponse->connType;
