@@ -8,10 +8,8 @@
 .#*
 a.out
 bin/*
-client
 debian/*.debhelper.log
 main
-server
 /Debug
 /Release
 crash-info
