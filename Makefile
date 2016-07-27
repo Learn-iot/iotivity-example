@@ -26,17 +26,23 @@ default: all
 package?=iotivity-example
 
 
-DEST_LIB_DIR?=${DESTDIR}${local_optdir}/${package}/
 local_bindir?=bin
 local_bindir?=opt
-
+DEST_LIB_DIR?=${DESTDIR}${local_optdir}/${package}/
 IOTIVITY_DIR?=$(PKG_CONFIG_SYSROOT_DIR)/usr/include/iotivity
 
 CPPFLAGS+=$(shell pkg-config iotivity --cflags)
+LIBS+=-loc -loc_logger -loctbstack
+
+ifeq (${PLATFORM}, TIZEN)
+CPPFLAGS+=-D__TIZEN__=1 
 CPPFLAGS+=$(shell pkg-config dlog --cflags)
-CPPFLAGS+=-D__TIZEN__=1 -DLOG_=daemon_log
-LIBS+=$(shell pkg-config iotivity --libs)
-LIBS+= -loc -loc_logger -loctbstack -ldlog
+LIBS+=$(shell pkg-config dlog --libs)
+else
+CPPFLAGS+=-I${IOTIVITY_DIR}/resource/stack
+CPPFLAGS+=-I${IOTIVITY_DIR}/resource/c_common
+CPPFLAGS+=-I${IOTIVITY_DIR}/resource/logger
+endif
 
 client?=${local_bindir}/client
 server_objs?=
