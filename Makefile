@@ -29,12 +29,11 @@ package?=iotivity-example
 DEST_LIB_DIR?=${DESTDIR}${local_optdir}/${package}/
 local_bindir?=bin
 local_bindir?=opt
-vpath+=src
-VPATH+=src
 
 IOTIVITY_DIR?=$(PKG_CONFIG_SYSROOT_DIR)/usr/include/iotivity
 
 CPPFLAGS=$(shell pkg-config iotivity --cflags)
+CPPFLAGS+=-DLOGGING=1
 
 CPPFLAGS+=\
  -I$(IOTIVITY_DIR) \
@@ -44,7 +43,6 @@ CPPFLAGS+=\
  -I$(IOTIVITY_DIR)/resource/stack/ \
  -I. \
  #eol
-
 
 LIBS+= -loc -loc_logger -loctbstack
 
@@ -57,11 +55,11 @@ all?=${client} ${observer}
 
 all+=${server}
 
-${local_bindir}/server: server.o ${server_objs} ${objs}
+${local_bindir}/server: src/server.o ${server_objs} ${objs}
 	@-mkdir -p ${@D}
 	${CC} -o ${@} $^ ${LDFLAGS} ${LIBS}
 
-${local_bindir}/client: client.o ${client_objs} ${objs}
+${local_bindir}/client: src/client.o ${client_objs} ${objs}
 	@-mkdir -p ${@D}
 	${CC} -o ${@} $^ ${LDFLAGS} ${LIBS}
 
@@ -71,13 +69,22 @@ ${local_bindir}/%: %.o ${objs}
 	@-mkdir -p ${@D}
 	${CC} -o ${@} $^ ${LDFLAGS} ${LIBS}
 
-run: ${client}
+run/%: bin/%
 	${<D}/${<F}
 
+xterm/% : bin/%
+	xterm -e ${MAKE} run/${@F} &
+	sleep 1
+
+run: xterm/server xterm/client
+
 clean:
-	rm -f *.o *~ ${objs} */*.o
+	-rm -f *.o *~ ${objs} */*.o
+	find . -iname "*~" -exec rm '{}' \;
+	find . -iname "*.o" -exec rm -v '{}' \;
 
 distclean: clean
+	rm -rf bin
 	rm -f ${client} ${server}
 
 install: ${all}
