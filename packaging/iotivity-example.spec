@@ -24,8 +24,7 @@ that share a single gpio output as IoTivity resource.
 %setup -q
 
 %build
-%__make %{?_smp_mflags}
-
+%__make %{?_smp_mflags} PLATFORM=TIZEN
 
 %install
 %__make install DEST_LIB_DIR=%{buildroot}%{_libdir}/%{name}/
