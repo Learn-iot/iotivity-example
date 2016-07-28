@@ -22,8 +22,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __linux__
+#define HAVE_UNISTD_H
+#define HAVE_SIGNAL_H
+#endif
+
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include <octypes.h>
 #include <ocstack.h>
@@ -32,10 +42,8 @@
 #define TAG ("occlient")
 
 static OCConnectivityType gConnectivityType = CT_DEFAULT;
-static OCQualityOfService qos = OC_HIGH_QOS;
-
-#define DEFAULT_CONTEXT_VALUE 0x99
-static const char * requestUri = "/a/light";
+static OCQualityOfService gQos = OC_HIGH_QOS;
+static const char * gUri = "/light/1";
 
 int gQuitFlag = 0;
 static OCDevAddr gDestination;
@@ -50,14 +58,38 @@ typedef struct LIGHTRESOURCE
 static LightResource Light;
 
 
-OCStackApplicationResult postReqCB(void *ctx,
+OCStackApplicationResult handleGet(void *ctx,
                                    OCDoHandle handle,
                                    OCClientResponse *clientResponse)
 {
-    if (ctx == (void*)DEFAULT_CONTEXT_VALUE)
+
+    OCStackApplicationResult result= OC_STACK_DELETE_TRANSACTION;
+    if (!clientResponse)
     {
-        OIC_LOG(INFO, TAG, "Callback Context for POST recvd successfully");
+        return result;
+    }    
+    OCRepPayload* payload = (OCRepPayload*)(clientResponse->payload);
+    if (!payload)
+    {
+        return result;
+    }    
+
+    bool state=false;
+    if(OCRepPayloadGetPropBool(payload, "state", &Light.state))
+    {
+        printf("get: %d\n", Light.state);
     }
+
+    return OC_STACK_DELETE_TRANSACTION;
+}
+
+
+OCStackApplicationResult handlePost(void *ctx,
+                                    OCDoHandle handle,
+                                    OCClientResponse *clientResponse)
+{
+    OCStackApplicationResult result = OC_STACK_KEEP_TRANSACTION;
+    OIC_LOG(INFO, TAG, "Callback Context for POST recvd successfully");
 
     if (clientResponse)
     {
@@ -70,7 +102,7 @@ OCStackApplicationResult postReqCB(void *ctx,
     return OC_STACK_DELETE_TRANSACTION;
 }
 
-OCPayload* putPayload()
+OCPayload* createPayload()
 {
     OCRepPayload* payload = (OCRepPayload*) OCRepPayloadCreate();
 
@@ -79,44 +111,33 @@ OCPayload* putPayload()
         OIC_LOG(INFO,TAG, "Failed to create put payload object");
         exit(1);
     }
-
-    Light.state = ! Light.state;
     OCRepPayloadSetPropBool(payload, "state", Light.state);
 
     return (OCPayload*) payload;
 }
 
 // This is a function called back when a device is discovered
-OCStackApplicationResult handleDiscovery(void* ctx,
-                                         OCDoHandle handle,
-                                         OCClientResponse * clientResponse)
+OCStackApplicationResult handleDiscover(void *ctx,
+                                        OCDoHandle handle,
+                                        OCClientResponse *clientResponse)
 {
-	OCStackResult result = OC_STACK_OK;
+    OCStackResult result = OC_STACK_OK;
 
-	if (ctx == (void*) DEFAULT_CONTEXT_VALUE)
-    {
-        OIC_LOG(INFO,TAG,"Callback Context for DISCOVER query recvd successfully");
-    }
+    OIC_LOG(INFO,TAG,"Callback Context for DISCOVER query recvd successfully");
 
-	if (clientResponse == NULL)
+    if (!clientResponse)
     {
         OIC_LOG(ERROR,TAG,"Payload is NULL, No resources found");
-        return   OC_STACK_DELETE_TRANSACTION;
+        return OC_STACK_DELETE_TRANSACTION;
     }
-
-	if (ctx == (void*)DEFAULT_CONTEXT_VALUE)
-    {
-        OIC_LOG(INFO, TAG, "Callback Context for GET query recvd successfully");
-    }
-
 
     OIC_LOG_V(INFO, TAG,
               "Device =============> Discovered @ %s:%d",
               clientResponse->devAddr.addr,
               clientResponse->devAddr.port);
 
-	OIC_LOG_V(INFO, TAG, "SEQUENCE NUMBER: %d", clientResponse->sequenceNumber);
-	OIC_LOG(INFO, TAG, "=============> Get Response");
+    OIC_LOG_V(INFO, TAG, "SEQUENCE NUMBER: %d", clientResponse->sequenceNumber);
+    OIC_LOG(INFO, TAG, "=============> Get Response");
 
     gDestination = clientResponse->devAddr;
     gConnectivityType = clientResponse->connType;
@@ -137,83 +158,118 @@ OCStackApplicationResult handleDiscovery(void* ctx,
         resource = resource->next;
     }
     Light.handle = handle;
-	return OC_STACK_KEEP_TRANSACTION;
+    return OC_STACK_KEEP_TRANSACTION;
 }
 
-loop()
-{
 
-	while (!gQuitFlag)
+OCStackResult get()
+{
+    OCStackResult result = OC_STACK_OK;
+    OCMethod method = OC_REST_GET;
+    OCCallbackData getCallback = { NULL, NULL, NULL };
+    getCallback.cb = handleGet;
+    OCRepPayload* payload = NULL;
+    
+    OIC_LOG_V(INFO,TAG,"loop: about to %d",method);
+    result = OCDoResource(&Light.handle, method, gUri, &gDestination,
+                          (OCPayload*) payload,
+                          gConnectivityType, gQos, &getCallback, NULL,0);
+
+    return result;
+}
+
+OCStackResult post()
+{
+    OCStackResult result = OC_STACK_OK;
+    OCMethod method = OC_REST_POST;
+    OCRepPayload* payload = createPayload();
+    OCCallbackData postCallback = { NULL, NULL, NULL };
+    postCallback.cb = handlePost;
+    
+    OIC_LOG_V(INFO,TAG,"loop: about to %d",method);
+    result = OCDoResource(&Light.handle, method, gUri, &gDestination,
+                          (OCPayload*) payload,
+                          gConnectivityType, gQos, &postCallback, NULL,0);
+    
+    if (result != OC_STACK_OK)
+    {
+        OIC_LOG_V(ERROR, TAG, "OCDoResource returns error %d with method %d", result, method);
+        return result;
+    }
+    sleep(1);
+    return result;
+}
+
+
+
+OCStackResult loop()
+{
+    OCStackResult result;
+    OIC_LOG(INFO, TAG, "Entering occlient main loop...");
+
+    while (!gQuitFlag)
     {
         printf("iterate: %d\n", Light.state);
 
-        if (OCProcess() != OC_STACK_OK)
+        result = OCProcess();
+        if (result != OC_STACK_OK)
         {
             OIC_LOG(ERROR, TAG, "OCStack process error");
             return 0;
         }
 
-        OCCallbackData cbData;
-        cbData.cb = postReqCB;
-        cbData.context = (void*)DEFAULT_CONTEXT_VALUE;
-        cbData.cd = NULL;
-
-        OCStackResult ret;
-        OCMethod method = OC_REST_POST;
-        OCRepPayload* payload = putPayload();
-        OCDoHandle handle;
-
-        OIC_LOG_V(INFO,TAG,"loop: about to %d",method);
-        ret = OCDoResource(&handle, method, requestUri, &gDestination,
-                           (OCPayload*) payload,
-                           gConnectivityType, qos, &cbData, NULL,0);
-
-        if (ret != OC_STACK_OK)
-        {
-            OIC_LOG_V(ERROR, TAG, "OCDoResource returns error %d with method %d", ret, method);
-        }
-        sleep(1);
+        post();
+        get();
+        
+        //changing state for next iteration
+        Light.state = ! Light.state; 
     }
-
+    OIC_LOG(INFO, TAG, "Exiting occlient main loop...");
+    return result;
 }
 
 
-setup()
+OCStackResult setup()
 {
-	OCStackResult ret;
-	char queryUri[MAX_QUERY_LENGTH] = { 0 };
+    OCStackResult result;
 
-
-	/* Initialize OCStack*/
-	if (OCInit(NULL, 0, OC_CLIENT) != OC_STACK_OK)
+    result = OCInit(NULL, 0, OC_CLIENT) ;
+    if (result != OC_STACK_OK)
     {
         OIC_LOG(ERROR, TAG, "OCStack init error");
-        return 0;
+        return result;
     }
 
-	OCCallbackData cbData;
-	cbData.cb = handleDiscovery;
-	cbData.context = (void*)DEFAULT_CONTEXT_VALUE;
-	cbData.cd = NULL;
+    OCCallbackData cbData = {NULL, NULL, NULL };
+    cbData.cb = handleDiscover;
 
-	/* Start a discovery query*/
+    char queryUri[MAX_QUERY_LENGTH] = { 0 };
     snprintf(queryUri, sizeof (queryUri), "%s", OC_RSRVD_WELL_KNOWN_URI);
-    
-	ret = OCDoResource(NULL, OC_REST_DISCOVER, queryUri, NULL, 0, gConnectivityType,
-                       qos, &cbData, NULL, 0);
-    
-	if (ret != OC_STACK_OK)
+    result = OCDoResource(NULL, OC_REST_DISCOVER,
+                          queryUri, NULL, 0, gConnectivityType,
+                          gQos, &cbData, NULL, 0);
+
+    if (result != OC_STACK_OK)
     {
         OIC_LOG(ERROR, TAG, "OCStack resource error");
     }
 
-	return ret;
+    return result;
+}
+
+
+void finish()
+{
+    if (OCStop() != OC_STACK_OK)
+    {
+        OIC_LOG(ERROR, TAG, "OCStack stop error");
+    }
 }
 
 /* SIGINT handler: set gQuitFlag to 1 for graceful termination */
 void handleSigInt(int signum)
 {
-	if (signum == SIGINT)
+    if (signum == SIGINT)
     {
         gQuitFlag = 1;
     }
@@ -221,22 +277,15 @@ void handleSigInt(int signum)
 
 int main()
 {
-	setup();
+    setup();
 
-	signal(SIGINT, handleSigInt);
-	// Break from loop with Ctrl+C
-	OIC_LOG(INFO, TAG, "Entering occlient main loop...");
+    // Break from loop with Ctrl+C
+    signal(SIGINT, handleSigInt);
 
-	loop();
+    loop();
 
-	OIC_LOG(INFO, TAG, "Exiting occlient main loop...");
+    finish();
 
-	if (OCStop() != OC_STACK_OK)
-    {
-    
-        OIC_LOG(ERROR, TAG, "OCStack stop error");
-    }
-
-	return 0;
+    return 0;
 }
 
