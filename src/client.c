@@ -218,11 +218,12 @@ OCStackResult loop()
             return 0;
         }
 
-        post();
         get();
         
         //changing state for next iteration
-        Light.state = ! Light.state; 
+        Light.state = ! Light.state;
+
+        post();
     }
     OIC_LOG(INFO, TAG, "Exiting occlient main loop...");
     return result;
