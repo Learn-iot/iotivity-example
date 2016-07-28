@@ -28,6 +28,7 @@
 #include <logger.h>
 
 int gQuitFlag = 0;
+static const char * gUri = "/light/1";
 
 #define TAG ("ocserver")
 
@@ -60,7 +61,7 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
                                      OCEntityHandlerRequest *entityHandlerRequest,
                                      void *callbackParam)
 {
-    OCEntityHandlerResult ehRet = OC_EH_OK;
+    OCEntityHandlerResult result = OC_EH_OK;
     OCEntityHandlerResponse response = {0};
 
     OIC_LOG_V(INFO, TAG, "%s",__FUNCTION__);
@@ -78,7 +79,7 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
 
         if (OC_REST_GET == entityHandlerRequest->method)
         {
-            OCRepPayloadSetUri(payload, "/a/light");
+            OCRepPayloadSetUri(payload, gUri);
             OCRepPayloadSetPropBool(payload, "state", Light.state);
             OCRepPayloadAddResourceType(payload, "core.light");
         }
@@ -86,18 +87,17 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
         {
 
             Light.state = !Light.state;
-            OCRepPayloadSetUri(payload, "/a/light");
+            OCRepPayloadSetUri(payload, gUri);
             OCRepPayloadSetPropBool(payload, "state", Light.state);
             OCRepPayloadAddResourceType(payload, "core.light");
             //OCRepPayloadAddInterface(payload, DEFAULT_INTERFACE);
         }
 
-        if (ehRet == OC_EH_OK)
         {
             // Format the response.  Note this requires some info about the request
             response.requestHandle = entityHandlerRequest->requestHandle;
             response.resourceHandle = entityHandlerRequest->resource;
-            response.ehResult = ehRet;
+            response.ehResult = result;
             response.payload = (OCPayload *) payload;
             response.numSendVendorSpecificHeaderOptions = 0;
             memset(response.sendVendorSpecificHeaderOptions, 0,
@@ -110,7 +110,7 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
             if (OCDoResponse(&response) != OC_STACK_OK)
             {
                 OIC_LOG(ERROR, TAG, "Error sending response");
-                ehRet = OC_EH_ERROR;
+                result = OC_EH_ERROR;
             }
         }
     }
@@ -126,7 +126,7 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
         }
     }
     OCRepPayloadDestroy(payload);
-    return ehRet;
+    return result;
 }
 
 
@@ -136,7 +136,7 @@ OCStackResult createLightResource()
     OCStackResult res = OCCreateResource(&Light.handle,
                                          "core.light",
                                          OC_RSRVD_INTERFACE_DEFAULT,
-                                         "/a/light",
+                                         gUri,
                                          handleOCEntity,
                                          NULL,
                                          OC_DISCOVERABLE | OC_OBSERVABLE);
