@@ -41,7 +41,6 @@ LIBS+=$(shell pkg-config dlog --libs)
 else
 CPPFLAGS+=-I${IOTIVITY_DIR}/resource/stack
 CPPFLAGS+=-I${IOTIVITY_DIR}/resource/c_common
-CPPFLAGS+=-I${IOTIVITY_DIR}/resource/logger
 endif
 
 client?=${local_bindir}/client
