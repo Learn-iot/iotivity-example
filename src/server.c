@@ -22,17 +22,21 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdbool.h>
+
 #include <ocstack.h>
-#include <logger.h>
+
+
+#define STR(a) #a
+
+#define LOGf(f,p)                                       \
+    printf("%s: %s=" f "\n", __FUNCTION__,STR(p), p);
+
+
+int setup();
 
 int gQuitFlag = 0;
 static const char * gUri = "/light/1";
-
-#define TAG ("ocserver")
-
-#define STR(a) #a
 
 typedef struct LIGHTRESOURCE
 {
@@ -64,18 +68,18 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
     OCEntityHandlerResult result = OC_EH_OK;
     OCEntityHandlerResponse response = {0};
 
-    OIC_LOG_V(INFO, TAG, "%s",__FUNCTION__);
+    LOGf("%p", entityHandlerRequest);
 
     OCRepPayload *payload = (OCRepPayload *) OCRepPayloadCreate();
     if (!payload)
     {
-        OIC_LOG(ERROR, TAG, "Failed to allocate Payload");
+        LOGf("%p (error)", payload);
         return OC_EH_ERROR;
     }
 
     if (entityHandlerRequest && (flag & OC_REQUEST_FLAG))
     {
-        OIC_LOG(INFO, TAG, "Flag includes OC_REQUEST_FLAG");
+        LOGf("%d (error)", flag);
 
         if (OC_REST_GET == entityHandlerRequest->method)
         {
@@ -107,22 +111,12 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
             response.persistentBufferFlag = 0;
 
             // Send the response
-            if (OCDoResponse(&response) != OC_STACK_OK)
+            result = OCDoResponse(&response);
+            if (result != OC_STACK_OK)
             {
-                OIC_LOG(ERROR, TAG, "Error sending response");
+                LOGf("%d (error)", result);
                 result = OC_EH_ERROR;
             }
-        }
-    }
-    if (entityHandlerRequest && (flag & OC_OBSERVE_FLAG))
-    {
-        if (OC_OBSERVE_REGISTER == entityHandlerRequest->obsInfo.action)
-        {
-            OIC_LOG(INFO, TAG, "Received OC_OBSERVE_REGISTER from client");
-        }
-        else if (OC_OBSERVE_DEREGISTER == entityHandlerRequest->obsInfo.action)
-        {
-            OIC_LOG(INFO, TAG, "Received OC_OBSERVE_DEREGISTER from client");
         }
     }
     OCRepPayloadDestroy(payload);
@@ -133,16 +127,16 @@ OCEntityHandlerResult handleOCEntity(OCEntityHandlerFlag flag,
 OCStackResult createLightResource()
 {
     Light.state = false;
-    OCStackResult res = OCCreateResource(&Light.handle,
-                                         "core.light",
-                                         OC_RSRVD_INTERFACE_DEFAULT,
-                                         gUri,
-                                         handleOCEntity,
-                                         NULL,
-                                         OC_DISCOVERABLE | OC_OBSERVABLE);
-
-    OIC_LOG_V(INFO, TAG, "Created Light resource with result: %s", res);
-    return res;
+    OCStackResult result = OCCreateResource(&Light.handle,
+                                            "core.light",
+                                            OC_RSRVD_INTERFACE_DEFAULT,
+                                            gUri,
+                                            handleOCEntity,
+                                            NULL,
+                                            OC_DISCOVERABLE | OC_OBSERVABLE);
+    
+    LOGf("%d", result);
+    return result;
 }
 
 
@@ -151,31 +145,39 @@ int loop()
     while (!gQuitFlag)
     {
         printf("iterate: %d\n",Light.state);
-        if (OCProcess() != OC_STACK_OK)
+        OCStackResult result = OCProcess();
+        if (result != OC_STACK_OK)
         {
-            OIC_LOG(ERROR, TAG, "OCStack process error");
-            return 0;
+
+            LOGf("%d (error)", result);
+            return 1;
         }
 
         sleep(1);
     }
-    OIC_LOG(INFO, TAG, "Exiting ocserver main loop...");
+    LOGf("%d (error)", gQuitFlag );
+
+    OCStackResult result = OCStop();
+    if ( result != OC_STACK_OK) 
+    {
+        return 2;
+    }
 }
 
 int setup()
 {
-    if (OCInit(NULL, 0, OC_SERVER) != OC_STACK_OK)
+    OCStackResult result = OCInit(NULL, 0, OC_SERVER);
+    if ( result != OC_STACK_OK)
     {
-        OIC_LOG(ERROR, TAG, "OCStack init error");
-        return -1;
+        LOGf("%d (error)", result);
+        return 1;
     }
 
-    /*
-     * Declare and create the example resource: Light
-     */
-    if (createLightResource() != OC_STACK_OK)
-    {
-        OIC_LOG(ERROR, TAG, "OCStack cannot create resource...");
-    }
+    result = createLightResource();
 
+    if ( result != OC_STACK_OK)
+    {
+        LOGf("%d (error)", result);
+        return 2;
+    }
 }
