@@ -29,22 +29,18 @@ void handleSigInt(int signum)
     }
 }
 
-
 int main()
 {
-
-    setup();
-
-    // Break from loop with Ctrl-C
-    OIC_LOG(INFO, TAG, "Entering ocserver main loop...");
-    signal(SIGINT, handleSigInt);
-
-    loop();
-    if (OCStop() != OC_STACK_OK)
+    int result = 0;
+    result = setup();
+    if ( result != 0 ) 
     {
-        OIC_LOG(ERROR, TAG, "OCStack process error");
+        return result;
     }
 
-    return 0;
+    signal(SIGINT, handleSigInt);
+    result = loop();
+
+    return result;
 }
 
