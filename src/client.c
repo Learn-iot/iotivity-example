@@ -37,9 +37,11 @@
 
 #include <octypes.h>
 #include <ocstack.h>
-#include <logger.h>
 
-#define TAG ("occlient")
+#define STR(a) #a
+
+#define LOGf(f,p)                                    \
+    printf("%s: %s=" f "\n", __FUNCTION__,STR(p), p);
 
 static OCConnectivityType gConnectivityType = CT_DEFAULT;
 static OCQualityOfService gQos = OC_HIGH_QOS;
@@ -62,8 +64,9 @@ OCStackApplicationResult handleGet(void *ctx,
                                    OCDoHandle handle,
                                    OCClientResponse *clientResponse)
 {
-
+    printf("%s: { %d\n", __FUNCTION__, Light.state);
     OCStackApplicationResult result= OC_STACK_DELETE_TRANSACTION;
+
     if (!clientResponse)
     {
         return result;
@@ -74,12 +77,13 @@ OCStackApplicationResult handleGet(void *ctx,
         return result;
     }    
 
-    bool state=false;
-    if(OCRepPayloadGetPropBool(payload, "state", &Light.state))
+
+    if (!OCRepPayloadGetPropBool(payload, "state", &Light.state))
     {
-        printf("get: %d\n", Light.state);
+        printf("%s: error: %d\n", __FUNCTION__, __LINE__);
     }
 
+    printf("%s: } %d\n", __FUNCTION__, Light.state);
     return OC_STACK_DELETE_TRANSACTION;
 }
 
@@ -89,16 +93,7 @@ OCStackApplicationResult handlePost(void *ctx,
                                     OCClientResponse *clientResponse)
 {
     OCStackApplicationResult result = OC_STACK_KEEP_TRANSACTION;
-    OIC_LOG(INFO, TAG, "Callback Context for POST recvd successfully");
-
-    if (clientResponse)
-    {
-        OIC_LOG(INFO, TAG, "=============> Post Response");
-    }
-    else
-    {
-        OIC_LOG_V(INFO, TAG, "postReqCB received Null clientResponse");
-    }
+    LOGf("%p", clientResponse);
     return OC_STACK_DELETE_TRANSACTION;
 }
 
@@ -106,9 +101,9 @@ OCPayload* createPayload()
 {
     OCRepPayload* payload = (OCRepPayload*) OCRepPayloadCreate();
 
+    printf("%s: %s=%p\n", __FUNCTION__, STR(payload), payload);
     if (!payload)
     {
-        OIC_LOG(INFO,TAG, "Failed to create put payload object");
         exit(1);
     }
     OCRepPayloadSetPropBool(payload, "state", Light.state);
@@ -123,21 +118,16 @@ OCStackApplicationResult handleDiscover(void *ctx,
 {
     OCStackResult result = OC_STACK_OK;
 
-    OIC_LOG(INFO,TAG,"Callback Context for DISCOVER query recvd successfully");
-
+    printf("%s: %s=%p\n", __FUNCTION__, STR(clientResponse), clientResponse);
+        
     if (!clientResponse)
     {
-        OIC_LOG(ERROR,TAG,"Payload is NULL, No resources found");
         return OC_STACK_DELETE_TRANSACTION;
     }
 
-    OIC_LOG_V(INFO, TAG,
-              "Device =============> Discovered @ %s:%d",
-              clientResponse->devAddr.addr,
-              clientResponse->devAddr.port);
-
-    OIC_LOG_V(INFO, TAG, "SEQUENCE NUMBER: %d", clientResponse->sequenceNumber);
-    OIC_LOG(INFO, TAG, "=============> Get Response");
+    printf("%s: %s=%p\n", __FUNCTION__, STR(clientResponse->devAddr.addr), clientResponse->devAddr.addr);
+ 
+    LOGf("%d", clientResponse->sequenceNumber);
 
     gDestination = clientResponse->devAddr;
     gConnectivityType = clientResponse->connType;
@@ -153,7 +143,7 @@ OCStackApplicationResult handleDiscover(void *ctx,
     {
         if(resource->uri)
         {
-            OIC_LOG_V(INFO, TAG, "uri: %s", resource->uri);
+            LOGf("%s", resource->uri);
         }
         resource = resource->next;
     }
@@ -165,12 +155,13 @@ OCStackApplicationResult handleDiscover(void *ctx,
 OCStackResult get()
 {
     OCStackResult result = OC_STACK_OK;
+    printf("%s:\n", __FUNCTION__);
+    
     OCMethod method = OC_REST_GET;
     OCCallbackData getCallback = { NULL, NULL, NULL };
     getCallback.cb = handleGet;
     OCRepPayload* payload = NULL;
     
-    OIC_LOG_V(INFO,TAG,"loop: about to %d",method);
     result = OCDoResource(&Light.handle, method, gUri, &gDestination,
                           (OCPayload*) payload,
                           gConnectivityType, gQos, &getCallback, NULL,0);
@@ -185,18 +176,21 @@ OCStackResult post()
     OCRepPayload* payload = createPayload();
     OCCallbackData postCallback = { NULL, NULL, NULL };
     postCallback.cb = handlePost;
-    
-    OIC_LOG_V(INFO,TAG,"loop: about to %d",method);
+
+    printf("%s: %d\n", __FUNCTION__, Light.state);
+
     result = OCDoResource(&Light.handle, method, gUri, &gDestination,
                           (OCPayload*) payload,
                           gConnectivityType, gQos, &postCallback, NULL,0);
     
     if (result != OC_STACK_OK)
     {
-        OIC_LOG_V(ERROR, TAG, "OCDoResource returns error %d with method %d", result, method);
+        LOGf("%d", method);
+        LOGf("%d", result);
+
         return result;
     }
-    sleep(1);
+    sleep(5);
     return result;
 }
 
@@ -205,7 +199,6 @@ OCStackResult post()
 OCStackResult loop()
 {
     OCStackResult result;
-    OIC_LOG(INFO, TAG, "Entering occlient main loop...");
 
     while (!gQuitFlag)
     {
@@ -214,18 +207,19 @@ OCStackResult loop()
         result = OCProcess();
         if (result != OC_STACK_OK)
         {
-            OIC_LOG(ERROR, TAG, "OCStack process error");
-            return 0;
+            LOGf("%d (error)", result);
+            return result;
         }
+
+        post();
 
         get();
         
         //changing state for next iteration
         Light.state = ! Light.state;
 
-        post();
     }
-    OIC_LOG(INFO, TAG, "Exiting occlient main loop...");
+    LOGf("%d", gQuitFlag);
     return result;
 }
 
@@ -237,7 +231,7 @@ OCStackResult setup()
     result = OCInit(NULL, 0, OC_CLIENT) ;
     if (result != OC_STACK_OK)
     {
-        OIC_LOG(ERROR, TAG, "OCStack init error");
+        LOGf("%d (error)", result);
         return result;
     }
 
@@ -252,7 +246,7 @@ OCStackResult setup()
 
     if (result != OC_STACK_OK)
     {
-        OIC_LOG(ERROR, TAG, "OCStack resource error");
+        LOGf("%d (error)", result);
     }
 
     return result;
@@ -261,9 +255,12 @@ OCStackResult setup()
 
 void finish()
 {
-    if (OCStop() != OC_STACK_OK)
+
+    OCStackResult result = OCStop();
+
+    if (result != OC_STACK_OK)
     {
-        OIC_LOG(ERROR, TAG, "OCStack stop error");
+        LOGf("%d (error)", result);
     }
 }
 
